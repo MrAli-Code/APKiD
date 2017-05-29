@@ -21,7 +21,7 @@ def package_files(directory):
 
 
 install_requires = [
-    'yara-python==3.5.0.999',
+    'yara-python==3.6.0.999',
     'argparse',
 ]
 
@@ -53,7 +53,7 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     dependency_links=[
-        'https://github.com/rednaga/yara-python/zipball/master#egg=yara-python-3.5.0.999'
+        'https://github.com/rednaga/yara-python/zipball/360_test#egg=yara-python-3.6.0.999'
     ],
     extras_require={
         'dev': [
