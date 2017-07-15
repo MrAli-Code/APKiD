@@ -1,23 +1,84 @@
 #!/usr/bin/env python
+import os
 from codecs import open
-from os import path, walk
+from distutils.command.build import build as _build
 
+import setuptools
 from setuptools import setup, find_packages
+from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
 import apkid
 
-here = path.abspath(path.dirname(__file__))
-
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 
 def package_files(directory):
     paths = []
-    for (filepath, directories, filenames) in walk(directory):
+    for (filepath, directories, filenames) in os.walk(directory):
         for filename in filenames:
-            paths.append(path.join(filepath, filename))
+            paths.append(os.path.join(filepath, filename))
     return paths
+
+
+class bdist_egg(_bdist_egg):
+    def run(self):
+        self.run_command('build_yarac')
+        _bdist_egg.run(self)
+
+
+class build_yarac(setuptools.Command):
+    description = 'compile Yara rules'
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        import yara
+        import fnmatch
+        rules_dir = 'apkid/rules/'
+        compiled_rules_path = os.path.join(rules_dir, 'rules.yarc')
+
+        yara_files = {}
+        for root, dirnames, filenames in os.walk(rules_dir):
+            for filename in fnmatch.filter(filenames, '*.yara'):
+                path = os.path.join(root, filename)
+                yara_files[path] = path
+        print("Compiling {} Yara rule files".format(len(yara_files)))
+        rules = yara.compile(filepaths=yara_files)
+        rules.save(compiled_rules_path)
+        # Note: Can only enumerate rules once
+        count = sum(1 for _ in rules)
+        print("Saved {} rules to {}".format(count, compiled_rules_path))
+
+
+class build(_build):
+    sub_commands = _build.sub_commands + [('build_yarac', None)]
+
+
+class update(setuptools.Command):
+    description = "prepare for release (only used by maintainers)"
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        import pypandoc
+        import codecs
+        print("Converting Markdown README to reStructuredText")
+        rst = pypandoc.convert_file('README.md', 'rst')
+        with codecs.open('README.rst', 'w+', encoding='utf-8') as f:
+            f.write(rst)
+        print("Finished converting to README.rst ({} bytes)".format(len(rst)))
 
 
 install_requires = [
@@ -45,6 +106,12 @@ setup(
         'Topic :: Security',
         'Topic :: Utilities',
     ],
+    cmdclass={
+        'bdist_egg': bdist_egg,
+        'build': build,
+        'build_yarac': build_yarac,
+        'update': update,
+    },
     keywords='android analysis reversing malware apk dex',
     packages=find_packages('.', exclude=['docs', 'tests']),
     package_data={
